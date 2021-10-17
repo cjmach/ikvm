@@ -233,6 +233,7 @@
   </ItemGroup>
 
   <ItemGroup Condition="$(TargetFramework.StartsWith('netstandard')) Or $(TargetFramework.StartsWith('netcore'))">
+    <Classpath Include="." />
     <Classpath Include="System.Runtime.jar" />
     <Classpath Include="$([System.IO.Path]::Combine('$(OpenJdkDir)', 'jdk\src\share\classes'))" />
     <Classpath Include="$([System.IO.Path]::Combine('$(OpenJdkDir)', 'corba\src\share\classes'))" />
@@ -245,10 +246,16 @@
       <RmiOutput>rmistubs</RmiOutput>
       <RmiArgs>$(VmArgs) -nowarn -bootclasspath @(Classpath, '$(PathSeparator)') -d $(RmiOutput)</RmiArgs>
     </PropertyGroup>
+    <PropertyGroup Condition="$([MSBuild]::IsOSPlatform('Windows'))">
+      <ActivationSystemImplClass>sun.rmi.server.Activation$ActivationSystemImpl</ActivationSystemImplClass>
+    </PropertyGroup>
+    <PropertyGroup Condition="!$([MSBuild]::IsOSPlatform('Windows'))">
+      <ActivationSystemImplClass>sun.rmi.server.Activation\$ActivationSystemImpl</ActivationSystemImplClass>
+    </PropertyGroup>
     <MakeDir Directories="$(RmiOutput)" />
     <Exec Command="rmic $(RmiArgs) -v1.1 sun.rmi.registry.RegistryImpl" />
     <Exec Command="rmic $(RmiArgs) -v1.1 sun.rmi.transport.DGCImpl" />
-    <Exec Command="rmic $(RmiArgs) -v1.2 'sun.rmi.server.Activation$ActivationSystemImpl'" />
+    <Exec Command="rmic $(RmiArgs) -v1.2 $(ActivationSystemImplClass)" />
     <Exec Command="rmic $(RmiArgs) -v1.2 java.rmi.activation.ActivationGroup" />
     <Exec Command="rmic $(RmiArgs) -v1.2 com.sun.jndi.rmi.registry.ReferenceWrapper" />
     <Exec Command="rmic $(RmiArgs) -v1.2 javax.management.remote.rmi.RMIConnectionImpl" />
