@@ -160,16 +160,20 @@ namespace IKVM.Reflection
 			// C:\Program Files\dotnet\shared\Microsoft.NETCore.App\3.1.7
 			// to
 			// C:\Program Files\dotnet\packs\Microsoft.NETCore.App.Ref\3.1.0\ref\netcoreapp3.1
-
-			var parts = runtimeDir.Split(Path.DirectorySeparatorChar);
-			var n = string.IsNullOrEmpty(parts[parts.Length - 1]) ? parts.Length - 2 : parts.Length - 1;
-			var versionDir = parts[n--];
-			var frameworkDir = parts[n--];
-			var newParts = new string[n + 5];
-			Array.Copy(parts, newParts, n);
-			var suffixParts = new string[] {"packs", frameworkDir + ".Ref", "3.1.0", "ref", "netcoreapp3.1"};
-			Array.Copy(suffixParts, 0, newParts, n, suffixParts.Length);
-			var dir = Path.Combine(newParts);
+			DirectoryInfo runtimeDirInfo = new DirectoryInfo(runtimeDir);
+			// var parts = runtimeDir.Split(Path.DirectorySeparatorChar);
+			// var n = string.IsNullOrEmpty(parts[parts.Length - 1]) ? parts.Length - 2 : parts.Length - 1;
+			// var versionDir = parts[n--];
+			string versionDir = runtimeDirInfo.Name;
+			DirectoryInfo frameworkDirInfo = runtimeDirInfo.Parent;
+			// var frameworkDir = parts[n--];
+			string frameworkDir = frameworkDirInfo.Name;
+			// var newParts = new string[n + 5];
+			// Array.Copy(parts, newParts, n);
+			// var suffixParts = new string[] {"packs", frameworkDir + ".Ref", "3.1.0", "ref", "netcoreapp3.1"};
+			// Array.Copy(suffixParts, 0, newParts, n, suffixParts.Length);
+			// var dir = Path.Combine(newParts);
+			string dir = Path.Combine(frameworkDirInfo.Parent.Parent.FullName, "packs", frameworkDir + ".Ref", "3.1.0", "ref", "netcoreapp3.1");
 			if (!Directory.Exists(dir))
 			{
 				throw new FileNotFoundException("Reference assemblies directory: " + dir);

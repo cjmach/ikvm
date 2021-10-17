@@ -1,8 +1,15 @@
 <Project>
 
+  <PropertyGroup Condition="$([MSBuild]::IsOSPlatform('Windows'))">
+    <IkvmcExe>ikvmc.exe</IkvmcExe>
+  </PropertyGroup>
+  <PropertyGroup Condition="!$([MSBuild]::IsOSPlatform('Windows'))">
+    <IkvmcExe>ikvmc</IkvmcExe>
+  </PropertyGroup>
+
   <PropertyGroup>
     <OpenJdkDir>$([System.IO.Path]::GetFullPath('$(MSBuildThisFileDirectory)\..\..\openjdk-8u45-b14'))</OpenJdkDir>
-    <IkvmcExe>$([System.IO.Path]::GetFullPath('$(MSBuildThisFileDirectory)\..\bin\$(Configuration)\$(TargetFramework)\ikvmc.exe'))</IkvmcExe>
+    <Ikvmc>$([System.IO.Path]::GetFullPath('$(MSBuildThisFileDirectory)\..\bin\$(Configuration)\$(TargetFramework)\$(IkvmcExe)'))</Ikvmc>
     <OpenJdkToolsGenRsp>$([System.IO.Path]::GetFullPath('$(MSBuildThisFileDirectory)\tools.gen.rsp'))</OpenJdkToolsGenRsp>
   </PropertyGroup>
 
@@ -16,8 +23,8 @@
       </TransformOpenJdkDir>
     </ItemGroup>
     <RegexTransform Items="@(TransformOpenJdkDir)" />
-    <Exec Command="$(IkvmcExe) -r:mscorlib.dll -version:$(AssemblyVersion) -warnaserror -w4 -noparameterreflection @tools.gen.rsp" Condition="$(TargetFramework.StartsWith('net4'))" />
-    <Exec Command="$(IkvmcExe) -r:System.Threading.Thread.dll -r:System.Threading.dll -r:System.Runtime.dll -r:System.Runtime.Extensions.dll -version:$(AssemblyVersion) -warnaserror -w4 -noparameterreflection @tools.gen.rsp" Condition="$(TargetFramework.StartsWith('netstandard')) Or $(TargetFramework.StartsWith('netcore'))" />
+    <Exec Command="$(Ikvmc) -r:mscorlib.dll -version:$(AssemblyVersion) -warnaserror -w4 -noparameterreflection @tools.gen.rsp" Condition="$(TargetFramework.StartsWith('net4'))" />
+    <Exec Command="$(Ikvmc) -r:System.Threading.Thread.dll -r:System.Threading.dll -r:System.Runtime.dll -r:System.Runtime.Extensions.dll -version:$(AssemblyVersion) -warnaserror -w4 -noparameterreflection @tools.gen.rsp" Condition="$(TargetFramework.StartsWith('netstandard')) Or $(TargetFramework.StartsWith('netcore'))" />
     <Copy SourceFiles="$([System.IO.Path]::GetFullPath('$(MSBuildThisFileDirectory)\..\bin\IKVM.OpenJDK.Tools.dll'))" DestinationFolder="$([System.IO.Path]::GetFullPath('$(MSBuildThisFileDirectory)\..\bin\$(Configuration)\$(TargetFramework)'))" />
   </Target>
 

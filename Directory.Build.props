@@ -6,6 +6,8 @@
     <RepositoryRoot>$(MSBuildThisFileDirectory)</RepositoryRoot>
     <LangVersion>8.0</LangVersion>
     <NoWarn>$(NoWarn);1591;1573</NoWarn>
+    <DirSeparator>$([System.IO.Path]::DirectorySeparatorChar)</DirSeparator>
+    <PathSeparator>$([System.IO.Path]::PathSeparator)</PathSeparator>
   </PropertyGroup>
   
   <PropertyGroup Label="Assembly Signing">

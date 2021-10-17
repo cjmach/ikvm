@@ -11,15 +11,27 @@
     <OpenJdkVersion>OpenJDK 8u45 b14</OpenJdkVersion>
   </PropertyGroup>
 
-  <PropertyGroup Condition="$(TargetFramework.StartsWith('net4'))">
-    <IkvmStub>..\bin\$(Configuration)\$(TargetFramework)\ikvmstub.exe</IkvmStub>
-    <Ikvmc>..\bin\$(Configuration)\$(TargetFramework)\ikvmc.exe</Ikvmc>
+  <PropertyGroup Condition="$([MSBuild]::IsOSPlatform('Windows'))">
+    <IkvmStubExe>ikvmstub.exe</IkvmStubExe>
+    <IkvmcExe>ikvmc.exe</IkvmcExe>
+    <UpdBaseAddressesExe>updbaseaddresses.exe</UpdBaseAddressesExe>
+  </PropertyGroup>
+  <PropertyGroup Condition="!$([MSBuild]::IsOSPlatform('Windows'))">
+    <IkvmStubExe>ikvmstub</IkvmStubExe>
+    <IkvmcExe>ikvmc</IkvmcExe>
+    <UpdBaseAddressesExe>updbaseaddresses</UpdBaseAddressesExe>
   </PropertyGroup>
 
-  <PropertyGroup Condition="$(TargetFramework.StartsWith('netstandard')) Or $(TargetFramework.StartsWith('netcore'))">
-    <IkvmStub>..\bin\$(Configuration)\netcoreapp3.1\ikvmstub.exe</IkvmStub>
-    <Ikvmc>..\bin\$(Configuration)\netcoreapp3.1\ikvmc.exe</Ikvmc>
+  <!-- <PropertyGroup Condition="$(TargetFramework.StartsWith('net4'))"> -->
+  <PropertyGroup>
+    <IkvmStub>..\bin\$(Configuration)\$(TargetFramework)\$(IkvmStubExe)</IkvmStub>
+    <Ikvmc>..\bin\$(Configuration)\$(TargetFramework)\$(IkvmcExe)</Ikvmc>
   </PropertyGroup>
+
+  <!--<PropertyGroup Condition="$(TargetFramework.StartsWith('netstandard')) Or $(TargetFramework.StartsWith('netcore'))">
+    <IkvmStub>..\bin\$(Configuration)\netcoreapp3.1\IkvmStubExe</IkvmStub>
+    <Ikvmc>..\bin\$(Configuration)\netcoreapp3.1\ikvmc.exe</Ikvmc>
+  </PropertyGroup>-->
 
   <Target Name="RunBuild" BeforeTargets="CoreCompile" DependsOnTargets="BuildClasses;Rmi;RunNasgen;Vfs;Resources;Core">
   </Target>
@@ -72,7 +84,7 @@
 
   <Target Name="BuildClasses" DependsOnTargets="StubJars;AllSourcesGenLst;AssemblyInfoJava;PropertyConstantsJava">
     <Message Text="BuildClasses target is running..." Importance="high" />
-    <Exec Command="javac -J-Xmx1536M -g -nowarn -implicit:none -parameters -cp dummy -bootclasspath @(BuildClassesClasspath, ';') @allsources.gen.lst" />
+    <Exec Command="javac -J-Xmx1536M -g -nowarn -implicit:none -parameters -cp dummy -bootclasspath @(BuildClassesClasspath, '$(PathSeparator)') @allsources.gen.lst" />
   </Target>
 
   <Target Name="InitBuild">
@@ -212,24 +224,31 @@
     <RegexTransform Items="@(TransformAwtAssembly)" />
   </Target>
 
-  <PropertyGroup Condition="$(TargetFramework.StartsWith('net4'))">
-    <Classpath>mscorlib.jar;System.Xml.jar;$(OpenJdkDir)\jdk\src\share\classes;$(OpenJdkDir)\corba\src\share\classes;$(OpenJdkDirSlash)\build\linux-x86_64-normal-server-release\jdk\gensrc</Classpath>
-  </PropertyGroup>
+  <ItemGroup Condition="$(TargetFramework.StartsWith('net4'))">
+    <Classpath Include="mscorlib.jar" />
+    <Classpath Include="System.Xml.jar" />
+    <Classpath Include="$(OpenJdkDir)\jdk\src\share\classes" />
+    <Classpath Include="$(OpenJdkDir)\corba\src\share\classes" />
+    <Classpath Include="$(OpenJdkDirSlash)\build\linux-x86_64-normal-server-release\jdk\gensrc" />
+  </ItemGroup>
 
-  <PropertyGroup Condition="$(TargetFramework.StartsWith('netstandard')) Or $(TargetFramework.StartsWith('netcore'))">
-    <Classpath>System.Runtime.jar;$(OpenJdkDir)\jdk\src\share\classes;$(OpenJdkDir)\corba\src\share\classes;$(OpenJdkDir)\build\linux-x86_64-normal-server-release\jdk\gensrc</Classpath>
-  </PropertyGroup>
+  <ItemGroup Condition="$(TargetFramework.StartsWith('netstandard')) Or $(TargetFramework.StartsWith('netcore'))">
+    <Classpath Include="System.Runtime.jar" />
+    <Classpath Include="$([System.IO.Path]::Combine('$(OpenJdkDir)', 'jdk\src\share\classes'))" />
+    <Classpath Include="$([System.IO.Path]::Combine('$(OpenJdkDir)', 'corba\src\share\classes'))" />
+    <Classpath Include="$([System.IO.Path]::Combine('$(OpenJdkDir)', 'build\linux-x86_64-normal-server-release\jdk\gensrc'))" />
+  </ItemGroup>
 
   <Target Name="Rmi">
     <PropertyGroup>
       <VmArgs>-J-client -J-Xmx896m -J-Xms128m</VmArgs>
       <RmiOutput>rmistubs</RmiOutput>
-      <RmiArgs>$(VmArgs) -nowarn -bootclasspath $(Classpath) -d $(RmiOutput)</RmiArgs>
+      <RmiArgs>$(VmArgs) -nowarn -bootclasspath @(Classpath, '$(PathSeparator)') -d $(RmiOutput)</RmiArgs>
     </PropertyGroup>
     <MakeDir Directories="$(RmiOutput)" />
     <Exec Command="rmic $(RmiArgs) -v1.1 sun.rmi.registry.RegistryImpl" />
     <Exec Command="rmic $(RmiArgs) -v1.1 sun.rmi.transport.DGCImpl" />
-    <Exec Command="rmic $(RmiArgs) -v1.2 sun.rmi.server.Activation$ActivationSystemImpl" />
+    <Exec Command="rmic $(RmiArgs) -v1.2 'sun.rmi.server.Activation$ActivationSystemImpl'" />
     <Exec Command="rmic $(RmiArgs) -v1.2 java.rmi.activation.ActivationGroup" />
     <Exec Command="rmic $(RmiArgs) -v1.2 com.sun.jndi.rmi.registry.ReferenceWrapper" />
     <Exec Command="rmic $(RmiArgs) -v1.2 javax.management.remote.rmi.RMIConnectionImpl" />
@@ -246,10 +265,10 @@
 
   <Target Name="RunNasgen">
     <ItemGroup>
-      <NasgenSources Include="$(OpenJdkDir)\nashorn\src\jdk\nashorn\internal\objects\*.java" />
+      <NasgenSources Include="$([System.IO.Path]::Combine('$(OpenJdkDir)' , 'nashorn\src\jdk\nashorn\internal\objects\*.java'))" />
     </ItemGroup>
-    <Exec Command="javac -XDignore.symbol.file -g -nowarn -implicit:none -bootclasspath $(Classpath);$(OpenJdkDir)\nashorn\src;..\runtime\IKVM.Runtime.FirstPass\IKVM.Runtime.jar @(NasgenSources, ' ')" />
-    <Exec Command="java -Xbootclasspath/p:$(OpenJdkDir)\nashorn\buildtools\nasgen\src;$(OpenJdkDir)\nashorn\src jdk.nashorn.internal.tools.nasgen.Main $(OpenJdkDir)\nashorn\src jdk.nashorn.internal.objects $(OpenJdkDir)\nashorn\src" />
+    <Exec Command="javac -XDignore.symbol.file -g -nowarn -implicit:none -bootclasspath @(Classpath, '$(PathSeparator)')$(PathSeparator)$([System.IO.Path]::Combine('$(OpenJdkDir)', 'nashorn\src'))$(PathSeparator)$([System.IO.Path]::Combine('..' , '\runtime\IKVM.Runtime.FirstPass\IKVM.Runtime.jar')) @(NasgenSources, ' ')" />
+    <Exec Command="java -Xbootclasspath/p:$([System.IO.Path]::Combine('$(OpenJdkDir)', 'nashorn\buildtools\nasgen\src'))$(PathSeparator)$([System.IO.Path]::Combine('$(OpenJdkDir)', 'nashorn\src')) jdk.nashorn.internal.tools.nasgen.Main $([System.IO.Path]::Combine('$(OpenJdkDir)', 'nashorn\src')) jdk.nashorn.internal.objects $([System.IO.Path]::Combine('$(OpenJdkDir)', 'nashorn\src'))" />
   </Target>
 
   <Target Name="Vfs">
@@ -317,7 +336,7 @@
 
     <Exec Command="$(Ikvmc) -version:$(AssemblyVersion) -compressresources -opt:fields -strictfinalfieldsemantics -removeassertions -target:library -sharedclassloader -r:mscorlib.dll -r:System.dll -r:System.Core.dll -r:System.Xml.dll -r:IKVM.Runtime.dll -nowarn:110 -w4 -noparameterreflection -warnaserror @response.gen.txt" Condition="$(TargetFramework.StartsWith('net4'))" />
 
-    <Exec Command="$(Ikvmc) -debug -version:$(AssemblyVersion) -compressresources -opt:fields -strictfinalfieldsemantics -removeassertions -target:library -sharedclassloader -r:System.Runtime.dll -r:System.Runtime.Extensions.dll -r:System.Console.dll -r:System.Runtime.InteropServices.dll -r:System.IO.FileSystem.Watcher.dll -r:System.Threading.dll -r:System.Threading.Thread.dll -r:System.Threading.ThreadPool.dll -r:System.Diagnostics.StackTrace.dll -r:System.Resources.ResourceManager.dll -r:System.Collections.dll -r:System.Diagnostics.Process.dll -r:System.Collections.Specialized.dll -r:System.Security.Principal.dll -r:System.ComponentModel.Primitives.dll -r:System.Threading.Overlapped.dll -r:System.Diagnostics.FileVersionInfo.dll -r:System.IO.FileSystem.dll -r:System.Net.Primitives.dll -r:System.Net.Sockets.dll -r:Microsoft.Win32.Primitives.dll -r:System.Security.Cryptography.Csp.dll -r:System.Drawing.Primitives.dll -r:System.Security.Cryptography.Algorithms.dll -r:System.IO.FileSystem.DriveInfo.dll -r:System.Reflection.Emit.Lightweight.dll -r:System.Net.NetworkInformation.dll -r:System.Data.dll -r:System.Data.Common.dll -r:System.ComponentModel.TypeConverter.dll -r:System.Xml.ReaderWriter.dll -r:System.ComponentModel.dll -r:System.ObjectModel.dll -r:System.Diagnostics.Debug.dll -r:$(PkgSystem_Data_Odbc)\ref\netstandard2.0\System.Data.Odbc.dll -r:$(PkgSystem_Drawing_Common)\ref\netcoreapp3.0\System.Drawing.Common.dll -r:$(PkgSystem_Security_Permissions)\ref\netstandard2.0\System.Security.Permissions.dll -r:$(PkgSystem_Configuration_ConfigurationManager)\ref\netstandard2.0\System.Configuration.ConfigurationManager.dll -r:IKVM.Runtime.dll -nowarn:110 -w4 -noparameterreflection -warnaserror @response.gen.txt" Condition="$(TargetFramework.StartsWith('netstandard')) Or $(TargetFramework.StartsWith('netcore'))" />
+    <Exec Command="$(Ikvmc) -version:$(AssemblyVersion) -compressresources -opt:fields -strictfinalfieldsemantics -removeassertions -target:library -sharedclassloader -r:System.Runtime.dll -r:System.Runtime.Extensions.dll -r:System.Console.dll -r:System.Runtime.InteropServices.dll -r:System.IO.FileSystem.Watcher.dll -r:System.Threading.dll -r:System.Threading.Thread.dll -r:System.Threading.ThreadPool.dll -r:System.Diagnostics.StackTrace.dll -r:System.Resources.ResourceManager.dll -r:System.Collections.dll -r:System.Diagnostics.Process.dll -r:System.Collections.Specialized.dll -r:System.Security.Principal.dll -r:System.ComponentModel.Primitives.dll -r:System.Threading.Overlapped.dll -r:System.Diagnostics.FileVersionInfo.dll -r:System.IO.FileSystem.dll -r:System.Net.Primitives.dll -r:System.Net.Sockets.dll -r:Microsoft.Win32.Primitives.dll -r:System.Security.Cryptography.Csp.dll -r:System.Drawing.Primitives.dll -r:System.Security.Cryptography.Algorithms.dll -r:System.IO.FileSystem.DriveInfo.dll -r:System.Reflection.Emit.Lightweight.dll -r:System.Net.NetworkInformation.dll -r:System.Data.dll -r:System.Data.Common.dll -r:System.ComponentModel.TypeConverter.dll -r:System.Xml.ReaderWriter.dll -r:System.ComponentModel.dll -r:System.ObjectModel.dll -r:System.Diagnostics.Debug.dll -r:$(PkgSystem_Data_Odbc)\ref\netstandard2.0\System.Data.Odbc.dll -r:$(PkgSystem_Drawing_Common)\ref\netcoreapp3.0\System.Drawing.Common.dll -r:$(PkgSystem_Security_Permissions)\ref\netstandard2.0\System.Security.Permissions.dll -r:$(PkgSystem_Configuration_ConfigurationManager)\ref\netstandard2.0\System.Configuration.ConfigurationManager.dll -r:IKVM.Runtime.dll -nowarn:110 -w4 -noparameterreflection -warnaserror @response.gen.txt" Condition="$(TargetFramework.StartsWith('netstandard')) Or $(TargetFramework.StartsWith('netcore'))" />
 
     <CallTarget Targets="Peverify" Condition="$(TargetFramework.StartsWith('net4'))" />
     <Exec Command="..\tools\bin\$(Configuration)\$(TargetFramework)\depcheck.exe response.gen.txt dependencies.txt" Condition="$(TargetFramework.StartsWith('net4'))" />
@@ -326,8 +345,8 @@
       <IkvmDllFiles Include="IKVM.OpenJDK.*.dll" />
     </ItemGroup>
     <Copy SourceFiles="@(IkvmDllFiles)" DestinationFolder="..\bin\$(Configuration)\$(TargetFramework)" />
-    <Exec Command="..\tools\bin\$(Configuration)\$(TargetFramework)\updbaseaddresses.exe response.gen.txt" Condition="$(TargetFramework.StartsWith('net4'))" />
-    <Exec Command="..\tools\bin\$(Configuration)\netcoreapp3.1\updbaseaddresses.exe response.gen.txt" Condition="$(TargetFramework.StartsWith('netstandard')) Or $(TargetFramework.StartsWith('netcore'))" />
+    <Exec Command="..\tools\bin\$(Configuration)\$(TargetFramework)\$(UpdBaseAddressesExe) response.gen.txt" Condition="$(TargetFramework.StartsWith('net4'))" />
+    <Exec Command="..\tools\bin\$(Configuration)\netcoreapp3.1\$(UpdBaseAddressesExe) response.gen.txt" Condition="$(TargetFramework.StartsWith('netstandard')) Or $(TargetFramework.StartsWith('netcore'))" />
     <MakeDir Directories="..\lib\$(Configuration)\$(TargetFramework)" />
     <Exec Command="$(IkvmStub) -out:..\lib\$(Configuration)\$(TargetFramework)\ikvm-api.jar IKVM.OpenJDK.Core.dll -namespace:ikvm.io -namespace:ikvm.lang -namespace:ikvm.runtime" />
   </Target>
